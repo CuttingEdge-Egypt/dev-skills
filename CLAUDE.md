@@ -43,8 +43,8 @@ npx skills add . --list                 # see what's installable
 npx skills add . --skill security-audit-report
 
 # once this repo is on GitHub
-npx skills add <owner>/<repo> --skill security-audit-report
-npx skills add <owner>/<repo> --skill '*'   # install everything
+npx skills add CuttingEdge-Egypt/dev-skills --skill security-audit-report
+npx skills add CuttingEdge-Egypt/dev-skills --skill '*'   # install everything
 ```
 
 The CLI detects the agent(s) present in the environment and installs into the right config

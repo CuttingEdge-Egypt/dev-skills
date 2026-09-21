@@ -19,13 +19,13 @@ detects whichever coding agent(s) you have and installs into the right config di
 
 ```bash
 # see what's available
-npx skills add basyonic/dev-skills --list
+npx skills add CuttingEdge-Egypt/dev-skills --list
 
 # install one skill
-npx skills add basyonic/dev-skills --skill security-audit-report
+npx skills add CuttingEdge-Egypt/dev-skills --skill pr-prep
 
 # install everything
-npx skills add basyonic/dev-skills --skill '*'
+npx skills add CuttingEdge-Egypt/dev-skills --skill '*'
 ```
 
 To install from a local checkout instead of GitHub, point the CLI at the repo path:
