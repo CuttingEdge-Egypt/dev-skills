@@ -8,6 +8,7 @@ Cline, Copilot, Windsurf, ...).
 
 | Skill | Description |
 |---|---|
+| [`pr-prep`](skills/pr-prep/SKILL.md) | Drafts a PR title and description from branch/git history, tailored to whatever PR template and work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Falls back to a bundled template if the repo doesn't have one. |
 | [`security-audit-report`](skills/security-audit-report/SKILL.md) | Audits a codebase for vulnerabilities and produces a rigorous Markdown + HTML report — numbered findings, each with a verified severity, category, exact file:line citations, an exploit path, and a fix. Supports fresh audits and incremental re-audits against a newer commit. |
 
 ## Install

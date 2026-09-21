@@ -85,3 +85,5 @@ general project tooling.
 - No repo-wide build/lint/test tooling exists yet; each skill is validated by using it end-to-end
   (running its scripts against sample input) rather than a shared test suite.
 - After adding or moving a skill, sanity-check discovery with `npx skills add . --list`.
+- Keep `README.md`'s skills table in sync with `skills/`: whenever a skill is added, removed, or its
+  description/purpose changes meaningfully, update the corresponding README row in the same change.
