@@ -369,6 +369,8 @@
   .sd-med  { background: var(--sev-med); }
   .sd-low  { background: var(--sev-low); }
   .sd-prov { background: var(--ink-3); }
+  .sd-clear { background: var(--sev-clear); }
+  .sd-anon  { background: var(--accent); }
 
   /* ---------- Root cause callout ---------- */
   .rootcause {

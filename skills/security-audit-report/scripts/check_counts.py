@@ -27,7 +27,13 @@ into the first cell, or a separate `#` column:
     | **41** | Some low finding | Category name | location | assessment | acceptance check |
 
 Tables are located by their headers rather than by row shape, so column order is free and an
-extra column (an acceptance check, a starting position) does not break parsing.
+extra column (an acceptance check, a starting position, a Status column) does not break parsing.
+
+A `Status` column or `- **Status:** Resolved` line (set during a status-refresh incremental pass,
+see references/incremental.md) is optional. When present, findings marked Resolved are excluded
+from the severity and category counts -- the report keeps them visible but they should not inflate
+"current risk" totals -- and the at-a-glance table's Status column is checked against each finding's
+own Status line the same way its Severity column is.
 """
 import argparse
 import collections
@@ -36,9 +42,15 @@ import re
 import sys
 
 SEVERITIES = ["Critical", "High", "Medium", "Low", "Provisional"]
+# Set by a status-refresh incremental pass (references/incremental.md) -- absent on a fresh
+# audit, where every finding is implicitly Open and there is nothing to reconcile.
+STATUSES = ["Open", "Resolved", "Partially resolved", "New"]
 
 # "- **Severity:** High" / "- **Severity:** **Provisional**" / "- **Severity:** Critical (historical)"
 SEVERITY_RE = re.compile(r"^-\s+\*\*Severity:\*\*\s*\*{0,2}(" + "|".join(SEVERITIES) + r")")
+# "- **Status:** Resolved" -- same shape as Severity, scanned the same way.
+STATUS_RE = re.compile(r"^-\s+\*\*Status:\*\*\s*\*{0,2}(" + "|".join(STATUSES) + r")", re.I)
+STATUS_CELL_RE = re.compile(r"\*{0,2}(" + "|".join(STATUSES) + r")\*{0,2}", re.I)
 CATEGORY_RE = re.compile(r"^-\s+\*\*Category:\*\*\s*(.+?)\s*·\s*\*\*Impact:\*\*")
 HEADING_RE = re.compile(r"^###\s+(\d+)\.\s")
 ACCEPTANCE_RE = re.compile(r"\*\*Acceptance check[.:]?\*\*", re.I)
@@ -127,6 +139,7 @@ def parse(md):
     counts = collections.defaultdict(lambda: collections.defaultdict(int))
     numbers, missing_severity, current = [], [], None
     severity_by_number, no_acceptance = {}, []
+    status_by_number = {}
 
     for i, line in enumerate(lines):
         h = HEADING_RE.match(line)
@@ -141,14 +154,23 @@ def parse(md):
                 body.append(lines[j])
             if not ACCEPTANCE_RE.search("\n".join(body)):
                 no_acceptance.append(current)
+            # Status sits below Category in the template (Severity, Category, Status), so
+            # unlike severity it cannot be found by scanning backward from the Category line --
+            # scan the whole body instead, once per finding.
+            status_by_number[current] = "Open"
+            for bl in body:
+                sm = STATUS_RE.match(bl)
+                if sm:
+                    status_by_number[current] = sm.group(1)
+                    break
 
         c = CATEGORY_RE.match(line)
         if not c:
             continue
         category = c.group(1).strip()
 
-        # Scan back to this finding's own heading looking for its severity line.
-        # Stopping at the heading is what makes multi-line severity notes safe.
+        # Scan back to this finding's own heading looking for its severity line. Stopping at
+        # the heading is what makes multi-line severity notes safe.
         severity = None
         for j in range(i - 1, -1, -1):
             if lines[j].startswith("### "):
@@ -161,10 +183,18 @@ def parse(md):
         if severity is None:
             severity = section_for(i) or "Medium"
             missing_severity.append(current)
+        status = status_by_number.get(current, "Open")
 
-        counts[category][severity] += 1
         if current is not None:
             severity_by_number[current] = severity
+            status_by_number[current] = status
+
+        # A status-refresh report keeps resolved findings visible but they should no longer
+        # inflate "current risk" totals -- that is the whole point of marking rather than
+        # deleting them. Provisional findings are excluded from confirmed counts for the same
+        # reason: a count here means "open and confirmed."
+        if status.lower() != "resolved":
+            counts[category][severity] += 1
 
     # Low findings may live in a table, one row each.
     _, low = classify_tables(lines)
@@ -173,6 +203,7 @@ def parse(md):
         headers, rows = low
         cat_at = column(headers, "category")
         acc_at = column(headers, "acceptance check", "acceptance")
+        status_at = column(headers, "status")
         for idx, cells in rows:
             num = leading_number(cells[0])
             if num is None:
@@ -180,12 +211,20 @@ def parse(md):
             low_rows.add(idx)
             numbers.append(num)
             severity_by_number[num] = "Low"
+            status = "Open"
+            if status_at is not None and status_at < len(cells):
+                sm = STATUS_CELL_RE.search(cells[status_at])
+                if sm:
+                    status = sm.group(1)
+            status_by_number[num] = status
             category = cells[cat_at] if cat_at is not None and cat_at < len(cells) else "(uncategorised)"
-            counts[category.strip()]["Low"] += 1
+            if status.lower() != "resolved":
+                counts[category.strip()]["Low"] += 1
             if acc_at is None or acc_at >= len(cells) or not cells[acc_at].strip():
                 no_acceptance.append(num)
 
-    return counts, sorted(numbers), missing_severity, severity_by_number, sorted(set(no_acceptance)), low_rows
+    return (counts, sorted(numbers), missing_severity, severity_by_number, sorted(set(no_acceptance)),
+            low_rows, status_by_number)
 
 
 def published_tables(md, skip_lines=frozenset()):
@@ -244,11 +283,12 @@ def published_tables(md, skip_lines=frozenset()):
     return found
 
 
-def check_glance(lines, severity_by_number):
+def check_glance(lines, severity_by_number, status_by_number):
     """The at-a-glance table repeats every finding's number and severity, so it drifts first.
 
     It is the one table a reader scans instead of the findings, which makes a stale row worse
-    than a missing table: it is wrong in the place most people look.
+    than a missing table: it is wrong in the place most people look. Once a report carries a
+    Status column (status-refresh mode), it drifts the same way and gets the same check.
     """
     problems = []
     glance, _ = classify_tables(lines)
@@ -257,13 +297,18 @@ def check_glance(lines, severity_by_number):
 
     headers, rows = glance
     sev_at = column(headers, "severity")
-    listed = {}
+    status_at = column(headers, "status")
+    listed, listed_status = {}, {}
     for _, cells in rows:
         num = leading_number(cells[0])
         if num is None or sev_at is None or sev_at >= len(cells):
             continue
         m = re.search(r"\*{0,2}(" + "|".join(SEVERITIES) + r")\*{0,2}", cells[sev_at])
         listed[num] = m.group(1) if m else cells[sev_at].strip()
+        if status_at is not None and status_at < len(cells):
+            sm = STATUS_CELL_RE.search(cells[status_at])
+            if sm:
+                listed_status[num] = sm.group(1)
 
     if len(listed) != len(rows):
         problems.append(f"at-a-glance table: {len(rows)} rows but {len(listed)} parsed — "
@@ -281,6 +326,12 @@ def check_glance(lines, severity_by_number):
     for num, said, actual in mismatched:
         problems.append(f"at-a-glance row {num} says {said}, finding {num} says {actual}")
 
+    status_mismatched = [(n, listed_status[n], status_by_number[n])
+                          for n in sorted(set(listed_status) & set(status_by_number))
+                          if listed_status[n].lower() != status_by_number[n].lower()]
+    for num, said, actual in status_mismatched:
+        problems.append(f"at-a-glance row {num} says status {said}, finding {num} says {actual}")
+
     return problems, True
 
 
@@ -292,8 +343,10 @@ def main():
 
     md = open(args.report, encoding="utf-8").read()
     lines = md.split("\n")
-    counts, numbers, missing, severity_by_number, no_acceptance, low_rows = parse(md)
+    (counts, numbers, missing, severity_by_number, no_acceptance, low_rows,
+     status_by_number) = parse(md)
     pub = published_tables(md, skip_lines=low_rows)
+    resolved = sorted(n for n, s in status_by_number.items() if s.lower() == "resolved")
 
     totals = collections.Counter()
     for cat in counts:
@@ -317,7 +370,7 @@ def main():
     if no_acceptance:
         problems.append(f"findings with no Acceptance check: {no_acceptance}")
 
-    glance_problems, has_glance = check_glance(lines, severity_by_number)
+    glance_problems, has_glance = check_glance(lines, severity_by_number, status_by_number)
     problems += glance_problems
 
     if "category_total" in pub and pub["category_total"][:5] != actual:
@@ -350,6 +403,7 @@ def main():
             "numbering_ok": not dupes and numbers == list(range(1, len(numbers) + 1)),
             "at_a_glance_present": has_glance,
             "findings_without_acceptance_check": no_acceptance,
+            "resolved_findings": resolved,
             "problems": problems,
         }, indent=2))
         return 1 if problems else 0
@@ -365,6 +419,8 @@ def main():
           f"{numbers == list(range(1, len(numbers) + 1))})")
     print(f"at-a-glance table: {'present, reconciled' if has_glance and not glance_problems else 'present, PROBLEMS' if has_glance else 'absent'}")
     print(f"acceptance checks: {len(numbers) - len(no_acceptance)}/{len(numbers)} findings")
+    if resolved:
+        print(f"resolved findings (excluded from counts above): {resolved}")
 
     if problems:
         print("\nPROBLEMS")

@@ -33,6 +33,12 @@
 
 -
 
+## Deployment Notes
+
+<!-- Anything that affects deployment: new migrations or lookup tables, new environment variables or secrets, permission/IAM changes, new infrastructure or services. Omit or write "None" if this is a normal code-only deploy. -->
+
+-
+
 ## Compliance Checklist
 
 - [ ] **Security**: No new secrets, credentials, or API keys committed to code

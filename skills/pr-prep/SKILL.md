@@ -37,17 +37,43 @@ Use this workflow when the user asks to prepare or create a pull request.
      `docs/`, and similar conventional doc filenames)
    - `git log --format='%h %s%n%b' <base>...HEAD` (capture commit messages/comments)
 
-3. **Find a PR template — but don't depend on one existing.**
+3. **Scan for deployment-affecting changes.** Using the diff and file list from step 2, look for
+   evidence that this PR needs deploy-time action beyond an ordinary code push. This is inferred,
+   never assumed — every note must cite the file(s) that triggered it, and finding nothing is a
+   legitimate outcome. Check for:
+   - **Data / lookup tables & migrations**: new files under `migrations/`, `db/migrate/`,
+     `alembic/versions/`, `*.sql` seed or fixture files, new Django/Rails/EF-style migration
+     classes, `CREATE TABLE`/`ALTER TABLE`/`INSERT INTO` statements, or new/changed lookup or
+     reference data.
+   - **Environment variables / config & secrets**: new keys added to `.env.example`, `.env.sample`,
+     `settings.py`/`settings/*.py`, `appsettings.json`, a `docker-compose.yml` `environment:` block,
+     Helm `values.yaml`, or a k8s `ConfigMap`/`Secret` manifest; new `os.environ[...]`,
+     `process.env.…`, or `System.getenv(...)` reads that don't already exist elsewhere in the repo.
+   - **Permissions / access control**: new IAM policies or roles, new `permission_classes` or RBAC
+     role/scope definitions, new OAuth scopes, changed database grants, or a new secret/key that
+     needs provisioning in a vault or CI secret store.
+   - **New infrastructure or services**: new entries in `docker-compose.yml`, new Dockerfile stages,
+     new Terraform/CloudFormation/Pulumi/Helm resources, a new queue/topic/bucket/cron job/scheduled
+     task, a newly exposed port, or a new background worker/process entry point.
+   - **Dependency additions that imply new infra**: a new package (e.g. a Redis, Kafka, or cloud
+     SDK client) that isn't already used elsewhere in the repo — flag these as "worth confirming"
+     rather than asserting a new service is required, since the dependency alone isn't proof.
+   - If nothing turns up, that's a real "None" for the Deployment Notes section in step 4 — don't
+     manufacture a note to fill the section.
+
+4. **Find a PR template — but don't depend on one existing.**
    - Look for a repo-provided template in the conventional locations: `.github/PULL_REQUEST_TEMPLATE.md`,
      `.github/pull_request_template.md`, `docs/PULL_REQUEST_TEMPLATE.md`, or a `.github/PULL_REQUEST_TEMPLATE/`
      directory with multiple templates (if there are several, ask which one applies).
    - If found, follow its sections and order exactly — it's the repo's own convention and takes
-     priority over anything below.
+     priority over anything below. **Exception**: if it has no section covering deployment-time
+     action (migrations, env vars, permissions, new infra), append a `## Deployment Notes` section
+     anyway per step 3, and tell the user you added it beyond the repo's own template.
    - If **not** found, fall back to `assets/PULL_REQUEST_TEMPLATE.md` bundled with this skill and use
      its sections. Mention to the user that no repo template was found and this is a generic fallback,
      in case they'd rather add a real one to the repo later.
 
-4. Draft **PR title** and **PR body**:
+5. Draft **PR title** and **PR body**:
    - **Title**: concise, human-readable, not the raw branch name. If a work item reference is known,
      prefix it — match whatever style the repo's existing merged PRs use (check `git log` on the base
      branch for the convention) if one is discernible; otherwise use `<KEY>: <title>`.
@@ -66,8 +92,14 @@ Use this workflow when the user asks to prepare or create a pull request.
      leaving it blank. You can't capture these yourself — ask the user to paste them into the section
      (or drop them into the PR after creation), and mark it "N/A" only when the change genuinely has
      no visible surface (backend-only, config, internal refactor).
+   - **Deployment notes**: turn whatever step 3 found into concrete action items for whoever deploys
+     the PR — e.g. "run migration `0042_add_lookup_table.py`", "set `PAYMENTS_API_KEY` in
+     staging/prod before deploy", "provision a Redis instance in the target environment." Cite the
+     file that triggered each note. If step 3 found nothing, write "None — no migrations, env vars,
+     permission, or infrastructure changes detected" rather than a generic disclaimer or omitting
+     the section.
 
-5. Present both to the user for review, then **close gaps by asking** (don't rely on a long "please
+6. Present both to the user for review, then **close gaps by asking** (don't rely on a long "please
    replace the placeholders yourself" closing paragraph).
    - After the first draft, identify what's still missing or placeholder: e.g. `## Design Decisions`
      is thin or unfilled, external links under `## Documentation` are unknown while in-repo paths may
@@ -88,7 +120,7 @@ Use this workflow when the user asks to prepare or create a pull request.
      closing note is fine — e.g. that you can open the PR once they confirm the text is final — without
      dumping a checklist of "replace every placeholder yourself."
 
-6. After approval, help create the PR:
+7. After approval, help create the PR:
    - Base branch: whatever was determined in step 1.
    - Push the branch if needed (`git push -u origin HEAD`).
    - Pass the PR body to `gh pr create` (or the repo's equivalent PR tooling) without leaving a copy
@@ -118,7 +150,7 @@ Deliver **two** copy-friendly blocks:
   description inside the fence should reflect that — avoid leaving unfilled placeholders in sections
   they already answered.
 
-Sections inside the description follow whichever template applies (step 3): the repo's own
+Sections inside the description follow whichever template applies (step 4): the repo's own
 `.github/PULL_REQUEST_TEMPLATE.md` order if one exists, otherwise `assets/PULL_REQUEST_TEMPLATE.md`'s
 order:
 
@@ -132,6 +164,8 @@ order:
 - `## Screenshots / Recordings` (for UI-visible or user-facing changes; "N/A" for backend-only or
   non-visual changes)
 - `## Test Plan`
+- `## Deployment Notes` (migrations/lookup tables, env vars & secrets, permission/IAM changes, new
+  infrastructure — inferred from the diff per step 3; "None" when nothing was found)
 - `## Compliance Checklist`
 
 ## Guardrails
@@ -146,6 +180,9 @@ order:
 - Don't invent design-doc URLs or in-repo paths that aren't in the branch diff; list paths that are
   changed/added. For external URLs: don't invent; use a placeholder only until the Documentation
   prompt is answered — then use the user's links or "None," not a lingering placeholder.
+- Don't invent deployment actions. Every Deployment Notes line must trace to a specific file or
+  change in the diff (step 3) — no generic "may require configuration changes" boilerplate, and no
+  padding the section just because it exists. Write "None" when the scan turns up nothing.
 - Don't invent a work-item key or force one into a repo that doesn't use trackers this way — ask once
   (step 0), accept "none," and move on.
 - Don't assume the base branch is `main`/`master`/`develop` — determine it (step 1) or ask.

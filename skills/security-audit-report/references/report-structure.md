@@ -58,6 +58,37 @@ re-reading the table by hand.
 Keep the finding text short enough to scan — this is an index, not a summary. The starting-position
 column is what stops a reader assuming every finding needs an admin account.
 
+### The Status column
+
+Once a report has been through any re-verification pass — see the "status refresh" mode in
+`references/incremental.md`, the mode built for "the dev team says they fixed these, check" — add a
+`Status` column so triage doesn't require reopening every finding:
+
+```markdown
+| # | Severity | Finding | Category | Starting position | Status |
+|---:|---|---|---|---|---|
+| 1 | Critical | Profile endpoint sets any account's password and self-promotes to Admin | Privilege escalation | Any authenticated user | Resolved |
+| 2 | Critical | Twenty dashboard endpoints expose any player's dossier via `?player_id=` | IDOR | Any authenticated user | Open |
+| 7 | High | Presigned upload URL omits a content-type check | Injection & SSRF | Any authenticated user | Partially resolved |
+```
+
+Four values, applied at the finding level, never at the table level:
+
+- **Open** — the default. A first-time fresh audit can omit the column entirely rather than fill
+  every row with a word that says nothing yet.
+- **Resolved** — you read the current code and confirmed the control is now in place. A commit
+  message claiming a fix is not evidence; see `references/incremental.md` step 4.
+- **Partially resolved** — some of the finding is closed, some is not. State both halves in the
+  finding body; do not let the row alone imply the whole thing is handled.
+- **New** — added in this pass, so a reader scanning a status-refresh report can tell what's freshly
+  discovered from what's been carried forward.
+
+The point of keeping resolved rows in the table, rather than deleting them the way current-state
+mode does, is that the report becomes a running fix-tracking log across audits — exactly what's
+useful when the workflow is "fix a batch, re-run the skill, see what's still open." If the user
+wants a clean current-state handoff instead, with fixed findings gone entirely, that is a different
+mode — say which one you're producing.
+
 ## Findings by category
 
 The category × severity matrix, then — and this is the part people actually quote — one short
@@ -86,6 +117,8 @@ them A, B, C — never 1, 2, 3**, because numbered root causes collide with numb
 
 - **Severity:** High · **Confidence:** 10/10
 - **Category:** Broken object-level authorization (IDOR) · **Impact:** Credential reset
+- **Status:** Resolved — `permission_classes` now includes `IsClubMember`; confirmed by reading
+  `backend/users/views/general.py:2387` at `a1b2c3d`
 
 ```
 backend/users/views/general.py:2387   no permission_classes
@@ -106,7 +139,8 @@ route: users/routers/general.py:421 -> PATCH /user-generals/update-player/<pk>/
 
 Required on every finding: a number, a `Severity` line, a `Confidence` out of 10, one `Category`
 from the taxonomy plus free-text `Impact` tags, repo-relative `file:line` citations, evidence, a
-`Fix`, and an `Acceptance check`.
+`Fix`, and an `Acceptance check`. Add a `Status` line once any re-verification pass has happened
+(see the Status column above); a fresh audit with nothing to re-verify yet can leave it out.
 
 ### The acceptance check
 
@@ -136,8 +170,8 @@ Low findings may use either table shape; `check_counts.py` reads both, and locat
 the header rather than by position, so an extra column is free:
 
 ```markdown
-| # | Finding | Category | Location | Assessment | Acceptance check |
-| **45** | Two unauthenticated upload endpoints | Unauthenticated endpoint exposure | `core/views.py:3065` | ... | Anonymous POST returns 401. |
+| # | Finding | Category | Location | Assessment | Acceptance check | Status |
+| **45** | Two unauthenticated upload endpoints | Unauthenticated endpoint exposure | `core/views.py:3065` | ... | Anonymous POST returns 401. | Open |
 ```
 
 Use **repo-relative paths** in citations. A bare `views.py:42` is ambiguous across a codebase with

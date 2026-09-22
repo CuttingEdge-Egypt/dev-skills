@@ -40,6 +40,9 @@ Then ask the user two things, unless they have already told you:
 
 1. **Which commit should the report describe?** Default to current `HEAD`. Record the hash.
 2. **Is there a prior security report?** If yes, get the path. This switches you to incremental mode.
+   If the user's goal is specifically "did the dev team's fix land" — testing after a bug fix,
+   validating that findings are resolved — see the **status refresh** mode below; it is the one
+   built for that loop.
 
 If there are **uncommitted modifications** to tracked files, say so — you are auditing what is
 committed, and those changes will not match your citations. Untracked files are excluded above
@@ -54,19 +57,32 @@ No prior report. You scan, verify, rate, and write. Sections below cover each st
 ### Incremental update
 
 A prior report exists. This is the common case after the first audit, and it has its own hazards.
-Read `references/incremental.md` before starting. The short version:
+Read `references/incremental.md` before starting. It covers three modes — pick one and say which:
+
+- **Current-state.** The report describes HEAD; fixed findings are removed from the body and every
+  count. What most people want for a report that will keep being read as "what's wrong right now."
+- **Frozen.** The report stays anchored to the original commit, with a separate appendix recording
+  what has since changed. For compliance artefacts that must stay reproducible.
+- **Status refresh.** Built for "the dev team says they fixed these, check" — re-verify each prior
+  finding, but instead of deleting resolved ones, mark them `Status: Resolved` in place and leave
+  them numbered and visible. Nothing is removed, so the report doubles as a fix-tracking log across
+  runs. This is the mode to reach for whenever the ask is to validate, re-test, or confirm findings
+  are resolved rather than to produce a clean current-state handoff.
+
+The short version common to all three:
 
 1. Confirm the prior report's commit is an ancestor: `git merge-base --is-ancestor <old> HEAD`
 2. **Rebase every citation** with `scripts/verify_citations.py` — this is not optional. A
    current-state report carrying stale line numbers is worse than either a clean fresh audit or an
    honestly-frozen old one, because every number looks authoritative and is wrong.
 3. Re-verify each prior finding against the new commit: still open, fixed, or partially fixed.
-4. **Remove fixed findings from the active list and from every count.** Remediation owners do not
-   need your audit's changelog. If a finding is fixed, it is not a finding.
+4. **In current-state mode, remove fixed findings from the active list and from every count.**
+   Remediation owners do not need your audit's changelog. **In status refresh mode, keep the
+   finding and set its `Status` instead** — see below and `references/incremental.md`.
 5. Scan the diff and the whole surface for anything new.
 
 Watch for the trap: when a finding bundles several bugs and only one gets fixed, the heading reads
-"fixed" while live bugs sit underneath it. Split them before that happens.
+"fixed" while live bugs sit underneath it. Split them before that happens, in every mode.
 
 ## Finding issues: think like an attacker, read like a reviewer
 
@@ -190,8 +206,10 @@ Follow `references/report-structure.md` for the full template. The shape:
 1. **Title, standfirst, provenance table** — report date, repo, branch, commit, scope
 2. **Severity breakdown** — counts per level
 3. **Findings at a glance** — one row per finding: number, severity, title, category, starting
-   position. This is the table people triage from and paste into tickets; most readers never scroll
-   past it. `check_counts.py` reconciles it against the findings, so never hand-maintain it.
+   position, and **status** (`Open` by default; `Resolved` / `Partially resolved` / `New` once a
+   finding has been through a re-verification pass — see status refresh mode above). This is the
+   table people triage from and paste into tickets; most readers never scroll past it.
+   `check_counts.py` reconciles it against the findings, so never hand-maintain it.
 4. **Findings by category** — the category × severity matrix, then one paragraph on what the
    distribution means. This is often the most valuable paragraph in the report: if 45% of findings
    are one category, that is not N mistakes, it is one missing control observed N times, and it
@@ -210,6 +228,13 @@ Every finding carries: number, title, `Severity`, `Confidence` (N/10), `Category
 citations, evidence, a `Fix`, and an `Acceptance check`. The severity line is per-finding and
 authoritative — section headings are grouping, not rating, and the report should say so where they
 disagree.
+
+Add a `Status` line once the report has been through any re-verification pass (`Open` by default —
+omit it entirely on a first-time fresh audit where every finding is open and the line would say
+nothing). On a status refresh, `Status: Resolved` replaces deletion: state what you read that
+confirms the fix, at what commit, rather than just changing the word. `Status: Partially resolved`
+gets the same two-halves treatment as a partially-fixed finding in incremental mode — what's closed,
+what remains.
 
 **`Fix` and `Acceptance check` are different jobs.** The fix tells the engineer what to change; the
 acceptance check tells whoever closes the ticket how to know it worked, stated as an observable end
@@ -277,6 +302,8 @@ Name output files with the report date so successive audits sort:
 - [ ] Every finding has an explicit `Severity` line
 - [ ] Every finding has an `Acceptance check` stating an observable end state
 - [ ] At-a-glance table present, one row per finding, reconciled by `check_counts.py`
+- [ ] On a status refresh: every re-verified finding has a `Status` line, resolved ones cite what
+      was read to confirm the fix, and nothing was silently deleted instead of marked
 - [ ] Rubric present; categories drawn only from the taxonomy
 - [ ] Unproven impact marked Provisional, not asserted
 - [ ] No audit-process history in the body

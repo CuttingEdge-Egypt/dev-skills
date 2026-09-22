@@ -33,6 +33,13 @@ import unicodedata
 SEV_CLASS = {"critical": "crit", "high": "high", "medium": "med",
              "low": "low", "provisional": "prov"}
 
+# Status tracks whether a finding is still live after a re-verification pass (see
+# references/incremental.md's "status refresh" mode) -- distinct from Severity, which tracks
+# how bad it is. "Open" reuses the High colour as a still-here warning, "New" the accent as a
+# fresh addition; only "Resolved" gets the clear/green treatment.
+STATUS_CLASS = {"open": "high", "resolved": "clear", "partially resolved": "med", "new": "anon"}
+STATUS_RE_TEXT = r"(Open|Resolved|Partially resolved|New)"
+
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
@@ -155,6 +162,11 @@ def convert(md):
             # whose *headers* are severity names but whose cells are counts -- is untouched.
             sev_col = next((k for k, c in enumerate(head)
                             if re.sub(r"[^a-z]", "", c.lower()) == "severity"), None)
+            # A Status column (Open / Resolved / Partially resolved / New) gets the same
+            # scannable dot treatment as Severity -- present once a report has been through a
+            # verification pass, absent otherwise, so this is a no-op on a fresh audit's tables.
+            status_col = next((k for k, c in enumerate(head)
+                               if re.sub(r"[^a-z]", "", c.lower()) == "status"), None)
             t = ['<div class="tbl-scroll"><table><thead><tr>']
             t += [f"<th>{inline(c)}</th>" for c in head]
             t.append("</tr></thead><tbody>")
@@ -163,8 +175,13 @@ def convert(md):
                 for k, c in enumerate(r):
                     sm = (re.match(r"\*{0,2}(Critical|High|Medium|Low|Provisional)\b", c.strip())
                           if k == sev_col else None)
+                    stm = (re.match(r"\*{0,2}" + STATUS_RE_TEXT + r"\b", c.strip(), re.I)
+                           if k == status_col else None)
                     if sm:
                         dot = f'<span class="sev-dot sd-{SEV_CLASS[sm.group(1).lower()]}"></span>'
+                        tds.append(f'<td class="sev">{dot}{inline(c)}</td>')
+                    elif stm:
+                        dot = f'<span class="sev-dot sd-{STATUS_CLASS[stm.group(1).lower()]}"></span>'
                         tds.append(f'<td class="sev">{dot}{inline(c)}</td>')
                     else:
                         tds.append(f"<td>{inline(c)}</td>")
@@ -198,11 +215,21 @@ def convert(md):
                     sm = re.match(r"\*\*Severity:\*\*\s*\*{0,2}"
                                   r"(Critical|High|Medium|Low|Provisional)"
                                   r"\*{0,2}\s*(?:·\s*)?", text)
+                    # "- **Status:** Resolved" gets the same chip treatment once a finding has
+                    # been through a verification pass -- see references/incremental.md.
+                    stm = re.match(r"\*\*Status:\*\*\s*\*{0,2}" + STATUS_RE_TEXT +
+                                   r"\*{0,2}\s*(?:·\s*)?", text, re.I)
                     if sm:
                         cls = SEV_CLASS[sm.group(1).lower()]
                         rest = text[sm.end():].strip().lstrip("·").strip()
                         tail = f" {inline(rest)}" if rest else ""
                         out.append(f'<li><span class="chip chip-{cls}">{sm.group(1)}</span>'
+                                   f'{tail}</li>')
+                    elif stm:
+                        cls = STATUS_CLASS[stm.group(1).lower()]
+                        rest = text[stm.end():].strip().lstrip("·").strip()
+                        tail = f" {inline(rest)}" if rest else ""
+                        out.append(f'<li><span class="chip chip-{cls}">{stm.group(1)}</span>'
                                    f'{tail}</li>')
                     else:
                         out.append(f"<li>{inline(text)}</li>")

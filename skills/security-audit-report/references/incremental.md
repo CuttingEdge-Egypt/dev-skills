@@ -17,19 +17,33 @@ what you are reading will produce findings nobody can reproduce.
 
 ## 2. Decide the model, and say which one you chose
 
-Two coherent options. Mixing them is the mistake:
+Three coherent options. Mixing them is the mistake:
 
-**Current-state** (usually what people want). The report describes HEAD. Fixed findings are removed
-from the body and from every count. Every citation must be rebased. Severities describe current
-risk.
+**Current-state** (usually what people want for a one-off refresh). The report describes HEAD.
+Fixed findings are removed from the body and from every count. Every citation must be rebased.
+Severities describe current risk.
 
-**Frozen** . The report stays an audit of the original commit, with a separate appendix recording
+**Frozen.** The report stays an audit of the original commit, with a separate appendix recording
 what has since been fixed. Citations stay as they were. Good for compliance, where the artefact
 needs to be reproducible.
 
+**Status refresh** (what "test after fixing bugs" and "validate findings are resolved" mean). The
+report stays the running record across audit cycles: every prior finding stays numbered and
+present, and a `Status` field on each one — and a `Status` column in the at-a-glance table — records
+`Open`, `Resolved`, `Partially resolved`, or `New` for anything added this pass. Nothing gets
+deleted. This is the mode for a fix-verify loop: the dev team fixes a batch, you re-run the skill
+against the new commit, and the same report now shows what changed instead of producing a second
+document to diff against the first. Citations still get rebased — a resolved finding's citation is
+what a reader checks to believe the resolution, so it must resolve as reliably as an open one's.
+
 The mixed version — current-state framing with stale line numbers, or a mixture of historical and
-current severities — is worse than either, because everything looks authoritative and some of it is
-wrong. If the user asks for current-state, the citation rebase is mandatory, not optional.
+current severities — is worse than any of the three, because everything looks authoritative and
+some of it is wrong. If the user asks for current-state or status refresh, the citation rebase is
+mandatory, not optional.
+
+Default to status refresh whenever the user's own framing is about checking or confirming fixes
+rather than producing a clean handoff — that phrasing is the signal, not the mere existence of a
+prior report. If they don't say and it isn't obvious, ask.
 
 ## 3. Rebase the citations
 
@@ -64,6 +78,12 @@ For every finding in the old report, read the code at HEAD and classify:
 Do not take a commit message as evidence. "fix: scope examinations to club" tells you someone
 intended a fix, not that the endpoint is now safe.
 
+In status refresh mode, this classification *is* the `Status` value: still open → `Status: Open`,
+fixed → `Status: Resolved` with a one-line note on what you read and at what commit, partially fixed
+→ `Status: Partially resolved` with both halves stated in the finding body. In current-state or
+frozen mode it instead decides whether the finding leaves the active list (current-state) or gets
+recorded in the appendix (frozen).
+
 ## 5. The bundling trap
 
 When a finding covers several related bugs and only some get fixed, the heading reads as resolved
@@ -78,11 +98,11 @@ For a finding that is genuinely partially fixed and stays as one entry, state bo
 explicitly: what is already in place, and what specifically remains. Phrase it forward-looking —
 "the amount binding is still missing" — rather than as a status timestamp.
 
-## 6. Remove fixed findings, then recount
+## 6. Recount — removal or status update, depending on mode
 
-Fixed findings come out of the active list and out of every count. If continuity matters to the
-user, a one-line note is enough; a whole section of audit history is not what a remediation owner
-needs.
+**Current-state mode:** fixed findings come out of the active list and out of every count. If
+continuity matters to the user, a one-line note is enough; a whole section of audit history is not
+what a remediation owner needs.
 
 Removing findings usually leaves gaps in the numbering. Either renumber and remap every
 cross-reference, or keep the gaps — but if you renumber, do it programmatically and check:
@@ -93,6 +113,12 @@ python scripts/check_counts.py report.md     # catches gaps, duplicates, and sta
 
 Watch for cross-references in prose ("finding 19's brute-force oracle"), in anchors
 (`[finding 26](#26-...)`), and in `**#12**` style references. All three need remapping.
+
+**Status refresh mode:** nothing is removed and nothing is renumbered. Set each re-verified
+finding's `Status` and its row in the at-a-glance table, then recount so severity totals reflect
+only what's still open — a resolved Critical should no longer inflate the Critical count even
+though its row is still visible. State both counts where it matters: "4 Critical, 1 now resolved"
+reads very differently from a bare "4 Critical" once a reader can see a `Status` column.
 
 ## 7. Scan for what is new
 
