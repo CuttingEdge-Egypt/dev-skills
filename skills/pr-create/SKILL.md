@@ -1,13 +1,14 @@
 ---
-name: pr-prep
+name: pr-create
 description: >-
   Drafts a PR title and description from branch/git history, tailored to whatever PR template and
   work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Use
-  when the user asks to write a PR message, improve a PR description, prepare a pull request, or
-  create a PR.
+  when the user asks to write a PR message, draft or improve a PR title/description, open a pull
+  request, or create a PR. DO NOT USE for getting a branch ready before opening a PR (code review,
+  linting, running checks, "is this ready for a PR?") — use the pr-prep skill for that.
 ---
 
-# PR prep
+# PR create
 
 ## Instructions
 

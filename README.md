@@ -8,7 +8,7 @@ Cline, Copilot, Windsurf, ...).
 
 | Skill | Description |
 |---|---|
-| [`pr-prep`](skills/pr-prep/SKILL.md) | Drafts a PR title and description from branch/git history, tailored to whatever PR template and work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Falls back to a bundled template if the repo doesn't have one. |
+| [`pr-create`](skills/pr-create/SKILL.md) | Drafts a PR title and description from branch/git history, tailored to whatever PR template and work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Falls back to a bundled template if the repo doesn't have one. |
 | [`security-audit-report`](skills/security-audit-report/SKILL.md) | Audits a codebase for vulnerabilities and produces a rigorous Markdown + HTML report — numbered findings, each with a verified severity, category, exact file:line citations, an exploit path, and a fix. Supports fresh audits and incremental re-audits against a newer commit. |
 
 ## Install
@@ -22,7 +22,7 @@ detects whichever coding agent(s) you have and installs into the right config di
 npx skills add CuttingEdge-Egypt/dev-skills --list
 
 # install one skill
-npx skills add CuttingEdge-Egypt/dev-skills --skill pr-prep
+npx skills add CuttingEdge-Egypt/dev-skills --skill pr-create
 
 # install everything
 npx skills add CuttingEdge-Egypt/dev-skills --skill '*'
