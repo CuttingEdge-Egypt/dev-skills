@@ -5,7 +5,9 @@ description: >-
   work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Use
   when the user asks to write a PR message, draft or improve a PR title/description, open a pull
   request, or create a PR. DO NOT USE for getting a branch ready before opening a PR (code review,
-  linting, running checks, "is this ready for a PR?") — use the pr-prep skill for that.
+  linting, running checks, "is this ready for a PR?") — use the pr-prep skill for that. DO NOT USE
+  for release/promotion PRs from an integration branch (dev/develop/staging) into a release branch
+  (staging, main, master, production, release/*) — use the release-pr-create skill for that.
 ---
 
 # PR create

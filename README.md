@@ -10,6 +10,7 @@ Cline, Copilot, Windsurf, ...).
 |---|---|
 | [`pr-create`](skills/pr-create/SKILL.md) | Drafts a PR title and description from branch/git history, tailored to whatever PR template and work-item tracker (Jira, Linear, Azure DevOps, GitHub Issues, or none) the repo actually uses. Falls back to a bundled template if the repo doesn't have one. |
 | [`pr-prep`](skills/pr-prep/SKILL.md) | Pre-PR readiness check for the current branch. Runs the repo's own linters on changed files, runs a code review (via the `code-review` skill, or a built-in review as fallback), and scans only what the branch changed for unused code, debug leftovers, skipped tests, secrets, stray files, and conflicts with base. Produces a readiness report with a verdict, then offers fixes. |
+| [`release-pr-create`](skills/release-pr-create/SKILL.md) | Drafts and, after approval, opens a release PR (e.g. `dev` → `staging`, `staging` → `main`). Collects every PR merged since the last release to that target (GitHub or Azure DevOps), writes a stakeholder-readable feature list, and consolidates each PR's deployment notes into one checklist covering env vars, secrets, migrations, infra, permissions, and manual steps. Every item cites its PR. |
 | [`security-audit-report`](skills/security-audit-report/SKILL.md) | Audits a codebase for vulnerabilities and produces a rigorous Markdown + HTML report — numbered findings, each with a verified severity, category, exact file:line citations, an exploit path, and a fix. Supports fresh audits and incremental re-audits against a newer commit. |
 
 ## Install
