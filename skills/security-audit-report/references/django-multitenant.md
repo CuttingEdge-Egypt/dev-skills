@@ -18,12 +18,34 @@ parents, patients), forgetting a permission class silently publishes the endpoin
 This makes omission invisible in code review: the diff shows a view with no permission line, which
 looks like every other view, and nothing fails.
 
+Sweep per view, not per file. One view in a file that sets `permission_classes` hides every
+sibling in that file that doesn't:
+
 ```bash
-# Views with no permission_classes anywhere in the file -- each is a candidate
-for f in $(rg -l "APIView|generics\.|ViewSet" --glob '*/views*.py'); do
-  rg -q "permission_classes" "$f" || echo "NO PERMISSION CLASS: $f"
-done
+# Each view class / @api_view function with no permission_classes of its own -- each is a candidate
+python - <<'EOF'
+import ast, pathlib
+for p in pathlib.Path(".").rglob("*.py"):
+    if {"migrations", "node_modules", ".venv"} & set(p.parts):
+        continue
+    try:
+        tree = ast.parse(p.read_text(encoding="utf-8"))
+    except (SyntaxError, UnicodeDecodeError):
+        continue
+    for n in ast.walk(tree):
+        if isinstance(n, ast.ClassDef) and any(("View" in ast.unparse(b)) for b in n.bases):
+            names = {t.id for s in n.body if isinstance(s, ast.Assign) for t in s.targets if isinstance(t, ast.Name)}
+            if "permission_classes" not in names:
+                print(f"{p}:{n.lineno} {n.name}")
+        elif isinstance(n, ast.FunctionDef):
+            decs = [ast.unparse(d) for d in n.decorator_list]
+            if any(d.startswith("api_view") for d in decs) and not any(d.startswith("permission_classes") for d in decs):
+                print(f"{p}:{n.lineno} {n.name}")
+EOF
 ```
+
+A class that inherits `permission_classes` from a base or mixin also appears in this list. Check
+its bases before you call it a finding.
 
 ## Is there a real tenant boundary, or is every filter hand-written?
 

@@ -76,6 +76,7 @@ The short version common to all three:
    current-state report carrying stale line numbers is worse than either a clean fresh audit or an
    honestly-frozen old one, because every number looks authoritative and is wrong.
 3. Re-verify each prior finding against the new commit: still open, fixed, or partially fixed.
+   This includes findings the prior report already marked fixed, since fixes can regress.
 4. **In current-state mode, remove fixed findings from the active list and from every count.**
    Remediation owners do not need your audit's changelog. **In status refresh mode, keep the
    finding and set its `Status` instead** — see below and `references/incremental.md`.
@@ -109,6 +110,20 @@ specific patterns — they account for most real findings in that stack.
 
 Cast wide here. Judgment comes next, and it is where the work actually is.
 
+**Coverage is counted, not sampled.** List every routed handler and every grep hit. Give each one
+a verdict: finding, safe, or not reachable. A handler that no grep matches still needs a verdict.
+If you hit a rate limit or run low on context, save the list with the verdicts so far and resume
+from the items still open. Never narrow the scope to finish, and never write "remaining N not
+triaged".
+
+| Thought | Reality |
+|---|---|
+| "It declares `IsAuthenticated` / `IsAdmin`, so it's fine" | Which tenant's admin? Declared permissions without a tenant filter still leak across tenants. |
+| "Same as the sibling view" | Read it. Siblings often differ by one missing check. |
+| "No grep hit, so safe" | Grep hits decide the order of work, not which views are safe. |
+| "Looks unrouted" | Prove it: grep the name across every URLconf, router, and `include()`. |
+| "Already in the old report" | Only after re-verifying it as still open at this commit. |
+
 ## Verification: the step that makes the report worth reading
 
 **Every finding must be confirmed by reading the source yourself.** Not the scanner's output, not a
@@ -130,6 +145,9 @@ check exists anywhere", run the search and report the real count:
 ```bash
 rg -c "construct_event|WEBHOOK_SECRET" --glob '!node_modules'
 ```
+
+A "safe" verdict needs the same proof as a finding: cite the file:line of the control you read.
+A "safe" without a citation is a guess.
 
 Two habits that repeatedly catch errors:
 
@@ -222,7 +240,8 @@ Follow `references/report-structure.md` for the full template. The shape:
    This is not padding: it stops the next reviewer re-treading the ground, and it is where your
    judgment is most visible.
 9. **Suggested order of work** — ranked by exposure removed per unit of effort, not by severity
-10. **Scope and method** — what was excluded, and what was not verified by execution
+10. **Scope and method** — what was excluded, what was not verified by execution, and coverage as
+    a count ("412 of 412 handlers dispositioned")
 
 Every finding carries: number, title, `Severity`, `Confidence` (N/10), `Category` + `Impact`,
 citations, evidence, a `Fix`, and an `Acceptance check`. The severity line is per-finding and
@@ -296,6 +315,8 @@ Name output files with the report date so successive audits sort:
 ## Before you hand it over
 
 - [ ] Every finding verified by reading source at the stated commit
+- [ ] Every handler and grep hit has a verdict; "safe" verdicts cite the control's line
+- [ ] Coverage stated as a count in Scope and method
 - [ ] `check_counts.py` passes — tables reconcile against findings
 - [ ] `verify_citations.py` passes — every citation resolves
 - [ ] Numbering contiguous from 1, no gaps or duplicates

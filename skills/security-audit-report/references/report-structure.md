@@ -214,6 +214,9 @@ What was excluded and why (denial of service, dependency CVEs, rate limiting, an
 was **not verified by execution**. If no exploit was run against a live system, say it plainly here
 and mark any finding whose rating depends on execution as Provisional.
 
+State coverage as a count: "412 of 412 routed handlers and 96 of 96 grep hits dispositioned". If
+the count is short of the total, the audit is not finished.
+
 ## Writing for the reader
 
 The audience is whoever will fix these. Keep the audit's own history out of the body: no "raised
