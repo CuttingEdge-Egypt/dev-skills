@@ -43,6 +43,10 @@ list unrelated PRs.
      `staging` if it exists and has commits `main` lacks, otherwise `dev`/`develop`.
   4. If more than one answer is still plausible, ask. Releasing the wrong branch ships the wrong
      code, so it's worth one question.
+- **Release number**: ask the user for it now, unless they already gave it, so the question doesn't
+  hold up the end of the workflow. It goes in the PR title (step 5). If past release PRs into the
+  target have numbered titles, mention the last one (e.g. "the last release was Release 41"), but
+  let the user give the number. Don't assume it's the next one.
 - `git fetch <remote> <source> <target>` first. Local branches are often stale, and a stale target
   makes already-released PRs look new. When promoting `staging` → `main`, also fetch the branch that
   feeds staging (`dev`/`develop`): the feature PRs live there, and the script needs its history to
@@ -142,15 +146,22 @@ This is the most valuable part, so be thorough and stick to what the PRs actuall
   (`.github/PULL_REQUEST_TEMPLATE/release.md` or similar). Otherwise use
   `assets/RELEASE_PR_TEMPLATE.md`. The repo's normal feature-PR template usually doesn't fit a
   release, so don't force it.
-- **Title**: match past release PRs into the same target if they follow a pattern (the platform
-  lookup in step 1 shows them). Otherwise use `Release: <source> → <target> (<YYYY-MM-DD>)`.
-- **Azure DevOps limits PR descriptions to 4,000 characters.** If the draft is longer, keep
-  Deployment Notes in full and shorten the other sections: collapse "Other changes" into one line
-  and drop the Included PRs table, because the PR links are already inline. Tell the user what you
-  shortened. GitHub allows about 65k, so this rarely matters there.
+- **Title**: always `Release <release number> - <YYYY-MM-DD>`, e.g. `Release 42 - 2026-10-11`,
+  using the release number the user gave in step 1 and today's date. Don't invent or auto-increment
+  the number. If the user hasn't given one yet, ask before presenting the draft.
+- **Formatting**: read `references/formatting.md` before writing the body and follow it. The core
+  rules: one change per bullet and one action per checkbox, references in a single consistent style
+  at the end of the line, the template's headings kept as they are, and notes about how the draft
+  was made kept in chat, not in the PR.
+- **Azure DevOps limits PR descriptions to 4,000 characters.** Measure the body; don't estimate. If
+  it's too long, never squeeze items together to make it fit. Split it instead: the description
+  keeps the summary, highlights and full Deployment Notes, and the full feature list goes in the
+  first PR comment (`references/formatting.md` covers the split). GitHub allows about 65k, so this
+  rarely matters there.
 
 Present the draft as two copy-friendly blocks: the title on one line in a plain code fence, and the
-body in one `markdown` fence. After them, add a few lines **outside** the fences covering the range
+body in one `markdown` fence (plus a third `markdown` fence for the first comment, if the body was
+split). After them, add a few lines **outside** the fences covering the range
 used (`boundary_method`, number of PRs), any warnings you couldn't resolve, and questions such as
 "PR #21 mentions Node 20 on build agents but has no deployment section; is that a deploy
 requirement?".
@@ -164,6 +175,13 @@ Don't create anything until the user approves the draft. Then:
 - **Azure DevOps**: `az repos pr create --source-branch <source> --target-branch <target> --title
   '…' --description "$(cat "$BODY")"`, or `az repos pr update --id <n> --description …`. You can
   also use an Azure DevOps connector if your environment has one.
+- **Split body (Azure DevOps)**: once the PR exists, post the full notes as its first comment.
+  Write `{"comments": [{"parentCommentId": 0, "content": <full notes>, "commentType": 1}], "status":
+  4}` to a temp JSON file, then run `az devops invoke --area git --resource pullRequestThreads
+  --route-parameters project=<project> repositoryId=<repo> pullRequestId=<n> --http-method POST
+  --in-file <file> --api-version 7.0`. Status 4 creates the thread as closed, so a "comments must
+  be resolved" branch policy won't block the release. When updating an existing release PR, edit
+  that comment rather than adding a second one.
 - Write `$BODY` to a temp file outside the repo (`mktemp`) and delete it afterwards.
 - Return the PR URL. Don't merge it, complete it, or set auto-complete. The release still needs its
   own review and a deploy window.
