@@ -1,0 +1,12 @@
+[mcp_servers.ado]
+command = "npx"
+args = [
+    "-y",
+    "@azure-devops/mcp",
+    "CuttingEdgeEgypt",
+    "--authentication",
+    "pat",
+]
+
+[mcp_servers.ado.env]
+PERSONAL_ACCESS_TOKEN = "bWFobW91ZC5iYXNpb255QGN1dHRpbmctZWRnZS5kaWdpdGFsOkZWeFQ4Y2IyRUpYNjBpQWNxRGF4SnFoUUJIOVpFZmFQZ2ZIcEpjR2FZMlZ5cTZUNWVYUmRKUVFKOTlDSUFDQUFBQUFBQUFBQUFBU0FaRE80MHNw"

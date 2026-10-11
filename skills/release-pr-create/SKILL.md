@@ -44,7 +44,9 @@ list unrelated PRs.
   4. If more than one answer is still plausible, ask. Releasing the wrong branch ships the wrong
      code, so it's worth one question.
 - `git fetch <remote> <source> <target>` first. Local branches are often stale, and a stale target
-  makes already-released PRs look new.
+  makes already-released PRs look new. When promoting `staging` → `main`, also fetch the branch that
+  feeds staging (`dev`/`develop`): the feature PRs live there, and the script needs its history to
+  expand a squash-merged dev → staging PR.
 
 ## 2. Collect the PRs
 
@@ -60,13 +62,20 @@ docstring documents every field. In summary, it:
   plain `target..source`. `boundary_method` says which one was used. `--since <tag|sha>` overrides
   it when the user knows better.
 - extracts PR numbers from merge and squash commit messages (GitHub, Azure DevOps, GitLab styles).
-  On GitHub it also looks up commits that have no PR number.
+  Commits with no PR number (an edited merge message, a rebase merge) are looked up on the platform
+  (GitHub commits API, Azure DevOps pull request query).
 - fetches each PR with `gh` or `az repos` and splits its description into sections. `deployment`
   holds the deployment-ish sections, `deployment_stated` and `deployment_is_none` say whether a
   deployment section exists and whether it just says "None". `deploy_hints` are lines elsewhere in
   the description that mention env vars, secrets, migrations, infra, or manual steps.
-- separates `release_prs` (earlier release PRs inside the range, e.g. a dev→staging release within
-  a staging→main promotion) and `direct_commits` (commits that belong to no PR).
+- separates `release_prs` (earlier release PRs inside the range, e.g. the dev → staging PRs within a
+  staging → main promotion), `direct_commits` (commits that belong to no PR), and
+  `unmatched_merges` (merge commits it could not tie to any PR).
+- **expands release PRs** into the feature PRs they shipped. With merge-commit (no-ff) releases those
+  feature PRs are already in range (`expansion.skipped`). With a squash-merged release, the script
+  scans the source branch between the previous and this release PR's head and adds what it finds to
+  `prs` with `via: <release PR>`. So for staging → main, the feature list and deployment notes come
+  from the original dev PRs, not from the thin aggregate dev → staging PRs.
 
 **Read `warnings` before anything else.** Each one changes how much you can trust the rest:
 - *CLI not found / could not fetch*: titles come from commit subjects and bodies are empty. Get the
@@ -76,9 +85,16 @@ docstring documents every field. In summary, it:
 - *Large range / fell back to `target..source`*: if the repo squash-merges releases, the range may
   include PRs that already shipped. Check the oldest PRs' merge dates against the last release. If
   in doubt, ask for the last release tag or commit and re-run with `--since`.
-- *Earlier release PRs inside the range*: their feature PRs usually appear in `prs` too (merge
-  commits keep them). If they don't, because that release was squash-merged, read the release PR's
-  own description (it's in `release_prs[].body`) for the list of PRs it shipped and fetch those.
+- *Could not expand release PR(s)*: a squash-merged release's feature PRs are missing. Fix the cause
+  the warning names (usually `git fetch <remote> dev`) and re-run. If it can't be fixed, read that
+  release PR's own description (`release_prs[].body`) for the PRs it shipped, and say the list may be
+  incomplete.
+- *Merge commit(s) could not be tied to any PR*: someone probably edited the merge message when
+  completing a PR. Ask the user which PR it was, or look it up in the web UI, before calling the
+  list complete.
+
+Release PRs themselves (`release_prs`) are containers. Don't list them as features. Do include any
+deployment notes written in their own descriptions alongside the feature PRs' notes.
 
 ## 3. Build the feature list
 
