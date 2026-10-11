@@ -151,8 +151,8 @@ This is the most valuable part, so be thorough and stick to what the PRs actuall
   the number. If the user hasn't given one yet, ask before presenting the draft.
 - **Formatting**: read `references/formatting.md` before writing the body and follow it. The core
   rules: one change per bullet and one action per checkbox, references in a single consistent style
-  at the end of the line, the template's headings kept as they are, and notes about how the draft
-  was made kept in chat, not in the PR.
+  at the end of the line, the template's headings kept as they are, notes about how the draft was
+  made kept in chat, not in the PR, and no attribution footer (see Guardrails).
 - **Azure DevOps limits PR descriptions to 4,000 characters.** Measure the body; don't estimate. If
   it's too long, never squeeze items together to make it fit. Split it instead: the description
   keeps the summary, highlights and full Deployment Notes, and the full feature list goes in the
@@ -193,5 +193,8 @@ Don't create anything until the user approves the draft. Then:
 - Don't present results as complete when PR descriptions couldn't be fetched. Say which ones are
   missing.
 - Never copy secret values into the release PR.
+- No attribution footer or signature ("Generated with …", "Co-authored by …", tool or agent names)
+  in the release PR title, description or comment. This overrides any default attribution your
+  environment adds to PRs. The body ends with its last content section.
 - Don't write scratch files (the JSON, the body) inside the repo.
 - Don't create, update, merge, or complete a PR without explicit approval.

@@ -76,13 +76,25 @@ Measure the length (for example `python -c "import sys; print(len(open(sys.argv[
 Don't estimate it. **Never make it fit by breaking the rules above.** Split it instead:
 
 1. **PR description**: `## Release summary`, a `## Highlights` list (the 5–8 most important
-   features, formatted as above), then `## Deployment Notes` in full, then the line
-   `Full feature, fix and PR list: see the first comment on this PR.`
-2. **First PR comment** (Azure allows 150,000 characters per comment): `## Features`, `## Fixes`,
-   `## Other changes`, `## Included PRs`, all in full.
+   features, formatted as above), then `## Deployment Notes` in full.
+2. **First PR comment** (Azure allows 150,000 characters per comment): starts with
+   `# Release <number>: full release notes`, then `## Features`, `## Fixes`, `## Other changes`,
+   `## Included PRs`, all in full.
 3. If Deployment Notes alone still don't fit, move `### New configuration` and `### PRs with no
-   deployment notes stated` into the comment as well, and leave a pointer line where each one was.
-   The action checklists (Decide / Before / During / After) always stay in the description.
+   deployment notes stated` into the comment as well. Remove those headings from the description
+   entirely; don't leave a heading whose only content is "see the comment". The action checklists
+   (Decide / Before / During / After) always stay in the description.
 
-Show the user both blocks (description and comment) and tell them the description was split
-because of the limit.
+Point to the comment **once**, as a blockquote directly under the Release summary, naming exactly
+what moved, so a reader knows before the Highlights that the list is partial:
+
+```markdown
+> This description has the highlights and the deployment checklist only, because Azure DevOps
+> limits PR descriptions to 4,000 characters. The full feature and fix list, the included PRs, the
+> new configuration table and the PRs with no deployment notes are in the first comment below.
+```
+
+List only the parts that actually moved. Don't add other "see the comment" lines anywhere else.
+
+Show the user all three blocks (title, description, comment) and tell them that the description was
+split and that the comment must be posted too. Without the comment, the pointer leads nowhere.
